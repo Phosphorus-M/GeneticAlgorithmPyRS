@@ -8,3 +8,9 @@ authors=["Phosphorus <fernando.npd@gmail.com>"]
 
 [dependencies]
 pyo3 = "0.18.1"
+numpy = "0.18"
+rand = "0.8.5"
+
+[lib]
+name = "genetic_algorithm_py_rs"
+crate-type = ["cdylib"]

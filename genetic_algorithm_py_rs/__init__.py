@@ -1,0 +1,1 @@
+from genetic_algorithm_py_rs._genetic_algorithm import GA

@@ -1,74 +1,26 @@
 extern crate pyo3;
+mod models;
+use std::{collections::HashMap};
 
+use models::intfloats::IntFloats;
 use pyo3::{prelude::*, exceptions::PyValueError};
-use rand::{rngs::StdRng, SeedableRng, Rng};
-
-#[pyfunction]
-#[pyo3(name = "add_two_numbers")]
-fn add_two_numbers(py: Python<'_>, a:PyObject, b: PyObject) -> PyResult<PyObject> {
-    if let (Ok(int1), Ok(int2)) = (a.extract::<i64>(py), b.extract::<i64>(py)){
-        return Ok((int1 + int2).to_object(py));
-    }
-    if let (Ok(float1), Ok(float2)) = (a.extract::<f64>(py), b.extract::<f64>(py)){
-        return Ok((float1 + float2).to_object(py));
-    }
-    Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>("Not supported"))
-}
+use rand::{rngs::StdRng, SeedableRng};
 
 #[pyclass]
 struct GA{
     random_seed: Option<u64>,
     suppress_warnings: bool,
-    mutation_by_replacement: bool
+    mutation_by_replacement: bool,
+    gene_space_nested: bool
 }
 
 #[pymethods]
 impl GA {
-    /*
-    def __init__(self, 
-                 num_generations, 
-                 num_parents_mating, 
-                 fitness_func,
-                 fitness_batch_size=None,
-                 initial_population=None,
-                 sol_per_pop=None, 
-                 num_genes=None,
-                 init_range_low=-4,
-                 init_range_high=4,
-                 gene_type=float,
-                 parent_selection_type="sss",
-                 keep_parents=-1,
-                 keep_elitism=1,
-                 K_tournament=3,
-                 crossover_type="single_point",
-                 crossover_probability=None,
-                 mutation_type="random",
-                 mutation_probability=None,
-                 mutation_by_replacement=False,
-                 mutation_percent_genes='default',
-                 mutation_num_genes=None,
-                 random_mutation_min_val=-1.0,
-                 random_mutation_max_val=1.0,
-                 gene_space=None,
-                 allow_duplicate_genes=True,
-                 on_start=None,
-                 on_fitness=None,
-                 on_parents=None,
-                 on_crossover=None,
-                 on_mutation=None,
-                 callback_generation=None,
-                 on_generation=None,
-                 on_stop=None,
-                 delay_after_gen=0.0,
-                 save_best_solutions=False,
-                 save_solutions=False,
-                 suppress_warnings=False,
-                 stop_criteria=None,
-                 parallel_processing=None,
-                 random_seed=None):
-     */
+   
+    // https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#L16
     #[new]
-    fn py_new(num_generations: i64,
+    fn py_new(py: Python<'_>,
+           num_generations: i64,
            num_parents_mating: i64,
            fitness_func: PyObject,
            fitness_batch_size: Option<i64>,
@@ -129,11 +81,87 @@ impl GA {
                 if let Ok(gene_space) = gene_space.extract::<Vec<PyObject>>(py){
                     if gene_space.len() == 0 {
                         return Err(PyValueError::new_err("'gene_space' cannot be empty (i.e. its length must be >= 0)."));
-                        // if let Ok(gene_space) = gene_space[0].extract::<Vec<PyObject>>(py){
-                        //     gene_space_nested = true;
-                        // }
+                    }else{
+                        // for iter
+                        for (index, gene) in gene_space.iter().enumerate(){
+                            // https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#L154
+                            let element = gene.extract::<Option<Vec<PyObject>>>(py);
+                            if let Ok(None) = element {
+                                continue;
+                                // self.gene_space_nested = True
+                            }
+                            if let Ok(Some(element)) = element{
+                                if element.len() == 0 {
+                                    return Err(PyValueError::new_err(format!("The element indexed {index} of 'gene_space' cannot be empty (i.e. its length must be >= 0")));
+                                }
+                                //check if all values in gene_space are numbers
+                                for val in element{
+                                    if let Err(_) = val.extract::<Option<IntFloats>>(py){
+                                        return Err(PyValueError::new_err("All values in the sublists inside the 'gene_space' attribute must be numeric of type int/float/None"));
+                                    }
+                                    gene_space_nested = true;
+                                }
+                            }
+                            if let Ok(Some(element)) =  gene.extract::<Option<HashMap<String, PyObject>>>(py){
+                                if element.values().len() == 2{
+                                    // verify if low and high are in element
+                                    if element.contains_key("low") && element.contains_key("high"){
+                                        continue;
+                                    }else{
+                                        // get keys as string
+                                        let keys = element.keys().map(|x| x.to_string()).collect::<Vec<String>>().join(", ");
+
+                                        return Err(PyValueError::new_err(format!("When an element in the 'gene_space' parameter is of type dict, then it can have the keys 'low', 'high', and 'step' (optional) but the following keys found: {keys}")));
+                                    }
+                                }else if element.values().len() == 3 {
+                                    // verify if low and high are in element
+                                    if element.contains_key("low") && element.contains_key("high") && element.contains_key("step"){
+                                        continue;
+                                    }else{
+                                        // get keys as string
+                                        let keys = element.keys().map(|x| x.to_string()).collect::<Vec<String>>().join(", ");
+
+                                        return Err(PyValueError::new_err(format!("When an element in the 'gene_space' parameter is of type dict, then it can have the keys 'low', 'high', and 'step' (optional) but the following keys found: {keys}")));
+                                    }
+                                }else{
+                                    return Err(PyValueError::new_err(format!("When an element in the 'gene_space' parameter is of type dict, then it must have only 2 items")));
+                                }
+                            };
+                            if let Err(_) = gene.extract::<IntFloats>(py){
+                                return Err(PyValueError::new_err("Unexpected type for the element indexed {index} of 'gene_space'. The accepted types are list/tuple/range/numpy.ndarray of numbers, a single number (int/float), or None."));
+                            }
+                        }
+                        
                     }
                 }
+
+                // https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#L187
+                // TODO: wrap in a function?
+                if let Ok(gene_space) = gene_space.extract::<HashMap<String, PyObject>>(py){
+                    if gene_space.values().len() == 2{
+                        // verify if low and high are in element
+                        if gene_space.contains_key("low") && gene_space.contains_key("high"){
+                        }else{
+                            // get keys as string
+                            let keys = gene_space.keys().map(|x| x.to_string()).collect::<Vec<String>>().join(", ");
+
+                            return Err(PyValueError::new_err(format!("When the 'gene_space' parameter is of type dict, then it can have only the keys 'low', 'high', and 'step' (optional) but the following keys found: {keys}")));
+                        }
+                    }
+                    else if gene_space.values().len() == 3 {
+                        // verify if low and high are in element
+                        if gene_space.contains_key("low") && gene_space.contains_key("high") && gene_space.contains_key("step"){
+                        }else{
+                            // get keys as string
+                            let keys = gene_space.keys().map(|x| x.to_string()).collect::<Vec<String>>().join(", ");
+
+                            return Err(PyValueError::new_err(format!("When the 'gene_space' parameter is of type dict, then it can have only the keys 'low', 'high', and 'step' (optional) but the following keys found: {keys}")));
+                        }
+                    }else{
+                        return Err(PyValueError::new_err(format!("When the 'gene_space' parameter is of type dict, then it must have only 2 items")));
+                    }
+                }
+                // https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#L203
             }
 
         Ok(
@@ -141,14 +169,16 @@ impl GA {
                 random_seed,
                 suppress_warnings,
                 mutation_by_replacement,
+                gene_space_nested
             }
         )
+}
 }
 
 
 #[pymodule]
 #[pyo3(name = "_add_two_numbers")]
 fn init(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(add_two_numbers, m)?)?;
+    m.add_class::<GA>()?;
     Ok(())
 }

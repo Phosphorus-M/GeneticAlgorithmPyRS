@@ -1,7 +1,7 @@
 use pyo3::FromPyObject;
 
 
-#[derive(FromPyObject)]
+#[derive(FromPyObject, PartialEq, Debug)]
 pub enum IntFloats {
     USize(usize),
     ISize(isize),

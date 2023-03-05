@@ -3,7 +3,7 @@ mod models;
 use std::{collections::HashMap};
 
 use models::intfloats::IntFloats;
-use pyo3::{prelude::*, exceptions::PyValueError};
+use pyo3::{prelude::*, exceptions::{PyValueError, PyWarning}};
 use rand::{rngs::StdRng, SeedableRng};
 
 #[pyclass]
@@ -11,7 +11,10 @@ struct GA{
     random_seed: Option<u64>,
     suppress_warnings: bool,
     mutation_by_replacement: bool,
-    gene_space_nested: bool
+    gene_space_nested: bool,
+    gene_space: Option<PyObject>,
+    init_range_low: IntFloats,
+    init_range_high: IntFloats
 }
 
 #[pymethods]
@@ -37,8 +40,8 @@ impl GA {
            initial_population: Option<PyObject>,
            sol_per_pop: Option<i64>,
            num_genes: Option<i64>,
-           init_range_low: Option<f64>,
-           init_range_high: Option<f64>,
+           init_range_low: Option<IntFloats>,
+           init_range_high: Option<IntFloats>,
            gene_type: Option<PyObject>,
            parent_selection_type: Option<String>,
            keep_parents: Option<i64>,
@@ -51,8 +54,8 @@ impl GA {
            mutation_by_replacement: Option<bool>,
            mutation_percent_genes: Option<String>,
            mutation_num_genes: Option<i64>,
-           random_mutation_min_val: Option<f64>,
-           random_mutation_max_val: Option<f64>,
+           random_mutation_min_val: Option<IntFloats>,
+           random_mutation_max_val: Option<IntFloats>,
            gene_space: Option<PyObject>,
            allow_duplicate_genes: Option<bool>,
            on_start: Option<PyObject>,
@@ -88,7 +91,8 @@ impl GA {
             };
 
             let mut gene_space_nested = false;
-            if let Some(gene_space) = gene_space {
+            // Validate gene_space
+            if let Some(gene_space) = gene_space.clone() {
                 if let Ok(gene_space) = gene_space.extract::<Vec<PyObject>>(py){
                     if gene_space.len() == 0 {
                         return Err(PyValueError::new_err("'gene_space' cannot be empty (i.e. its length must be >= 0)."));
@@ -171,16 +175,46 @@ impl GA {
                     }else{
                         return Err(PyValueError::new_err(format!("When the 'gene_space' parameter is of type dict, then it must have only 2 items")));
                     }
+
+                }
+                else {
+                    return Err(PyValueError::new_err(format!("When the 'gene_space' parameter is of type dict, then it must have only 2 items found.")));
                 }
                 // https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#L203
+            }else{
+                return Err(PyValueError::new_err("The expected type of 'gene_space' is list, tuple, range, or numpy.ndarray"));
             }
+
+            // Validate init_range_low and init_range_high
+            let Some(init_range_low) = init_range_low else {
+                return Err(PyValueError::new_err("The value passed to the 'init_range_low' parameter must be either integer or floating-point number."));
+            };
+            let Some(init_range_high) = init_range_high else {
+                return Err(PyValueError::new_err("The value passed to the 'init_range_high' parameter must be either integer or floating-point number."));
+            };
+            // Validate random_mutation_min_val and random_mutation_max_val
+            let Some(random_mutation_min_val) = random_mutation_min_val else {
+                return Err(PyValueError::new_err("The expected type of the 'random_mutation_min_val' parameter is numeric."));
+            };
+            let Some(random_mutation_max_val) = random_mutation_max_val else {
+                return Err(PyValueError::new_err("The expected type of the 'random_mutation_max_val' parameter is numeric."));
+            };
+            if random_mutation_min_val == random_mutation_max_val && suppress_warnings {
+                // TODO: Show it as a Warning
+                println!("The values of the 2 parameters 'random_mutation_min_val' and 'random_mutation_max_val' are equal and this causes a fixed change to all genes.")
+            }
+
+            println!("Finishing execution...");
 
         Ok(
             GA{
                 random_seed,
                 suppress_warnings,
                 mutation_by_replacement,
-                gene_space_nested
+                gene_space_nested,
+                gene_space,
+                init_range_low,
+                init_range_high
             }
         )
 }

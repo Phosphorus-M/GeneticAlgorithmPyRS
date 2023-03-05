@@ -19,6 +19,16 @@ impl GA {
    
     // https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#L16
     #[new]
+    #[pyo3(signature = (num_generations,num_parents_mating,
+        fitness_func, fitness_batch_size=None, initial_population=None, sol_per_pop=None, num_genes=None,
+        init_range_low=None, init_range_high=None, gene_type=None, parent_selection_type=None, keep_parents=None,
+        keep_elitism=None, K_tournament=None, crossover_type=None, crossover_probability=None, mutation_type=None,
+        mutation_probability=None, mutation_by_replacement=None, mutation_percent_genes=None, mutation_num_genes=None,
+        random_mutation_min_val=None, random_mutation_max_val=None, gene_space=None, allow_duplicate_genes=None,
+        on_start=None, on_fitness=None, on_parents=None, on_crossover=None, on_mutation=None, callback_generation=None,
+        on_generation=None, on_stop=None, delay_after_gen=None, save_best_solutions=None, save_solutions=None,
+        suppress_warnings=None, stop_criteria=None, parallel_processing=None, random_seed=None
+    ))]
     fn py_new(py: Python<'_>,
            num_generations: i64,
            num_parents_mating: i64,
@@ -60,6 +70,7 @@ impl GA {
            stop_criteria: Option<PyObject>,
            parallel_processing: Option<PyObject>,
            random_seed: Option<u64>) -> PyResult<Self>{
+            println!("Executing...");
 
             let seed = if let Some(seed) = random_seed {
                 let mut rng = StdRng::seed_from_u64(seed);
@@ -177,7 +188,7 @@ impl GA {
 
 
 #[pymodule]
-#[pyo3(name = "_add_two_numbers")]
+#[pyo3(name = "_genetic_algorithm")]
 fn init(_py: Python<'_>, m: &PyModule) -> PyResult<()> {
     m.add_class::<GA>()?;
     Ok(())

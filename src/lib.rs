@@ -2,7 +2,7 @@ extern crate pyo3;
 mod models;
 use std::{collections::HashMap};
 
-use models::intfloats::IntFloats;
+use models::intfloats::{IntFloats, Floats, Ints};
 use pyo3::{prelude::*, exceptions::{PyValueError, PyWarning}};
 use rand::{rngs::StdRng, SeedableRng};
 
@@ -203,6 +203,56 @@ impl GA {
                 // TODO: Show it as a Warning
                 println!("The values of the 2 parameters 'random_mutation_min_val' and 'random_mutation_max_val' are equal and this causes a fixed change to all genes.")
             }
+
+            // Validate gene_type https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#LL237C9-L237C29
+            let Some(gene_type) = gene_type else {
+                return Err(PyValueError::new_err("The value passed to the 'gene_type' parameter must be either a single integer, floating-point, list, tuple, or numpy.ndarray."));
+            };
+            let mut gene_type_single = false;
+            let gene_type_attrbute:(Option<IntFloats>, Option<IntFloats>) = 
+                if let Ok(gene_type) = gene_type.extract::<IntFloats>(py) {
+                        gene_type_single = true;
+                        (Some(gene_type), None)
+                }
+                else if let Ok(gene_type) = gene_type.extract::<(Floats, Option<Ints>)>(py) {
+                    if let Some(second_value) = gene_type.1 {
+                        (Some(gene_type.0.into()), Some(second_value.into()) )
+                    } else {
+                        (Some(gene_type.0.into()), None)
+                    }
+                }
+                else if let Ok(gene_type) = gene_type.extract::<Vec<PyObject>>(py){
+                    if let Some(num_genes) = num_genes {
+                        if gene_type.len() as i64 != num_genes {
+                            return Err(PyValueError::new_err("When the parameter 'gene_type' is nested, then it can be either [float, int<precision>] or with length equal to the value passed to the 'num_genes' parameter."));
+                        }
+                    }else {
+                        return Err(PyValueError::new_err("When the parameter 'gene_type' is nested, then it can be either [float, int<precision>] or with length equal to the value passed to the 'num_genes' parameter. So 'num_genes' can't be None"));
+                    }
+                    for (gene_type_idx, gene_type_val) in gene_type.iter().enumerate() {
+                        let mut gene_type: Vec<(Option<IntFloats>, Option<IntFloats>)> = Vec::new();
+                        if let Ok(gene_type_val) = gene_type_val.extract::<IntFloats>(py) {
+                            gene_type.push((Some(gene_type_val), None));
+                        }
+                        else if let Ok(gene_type_val) = gene_type_val.extract::<(Floats, PyObject)>(py) {
+                            if let Ok(Some(second_value)) = gene_type_val.1.extract::<Option<Ints>>(py) {
+                                // pass ? 
+                                // https://github.com/ahmedfgad/GeneticAlgorithmPython/blob/master/pygad.py#LL260C33-L260C37
+                            } else {
+                                return Err(PyValueError::new_err(format!("In the 'gene_type' parameter, the precision for float gene data types must be an integer but the element {:?} at index {} has a precision of {:?}.", gene_type_val, gene_type_idx, gene_type_val.0)));
+                            }
+                        }
+                        else {
+                            return Err(PyValueError::new_err("When the parameter 'gene_type' is nested, then it can be either [float, int<precision>] or with length equal to the value passed to the 'num_genes' parameter."));
+                        }
+                    }
+
+                    (None, None)
+                }
+                else {
+                    (None, None)
+                };
+
 
             println!("Finishing execution...");
 

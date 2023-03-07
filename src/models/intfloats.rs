@@ -1,7 +1,6 @@
 use pyo3::FromPyObject;
 
-
-#[derive(FromPyObject, PartialEq, Debug)]
+#[derive(FromPyObject, Clone, PartialEq, Debug)]
 pub enum IntFloats {
     USize(usize),
     ISize(isize),
@@ -20,7 +19,7 @@ pub enum IntFloats {
 }
 
 #[derive(FromPyObject, PartialEq, Debug)]
-pub enum Ints{
+pub enum Ints {
     USize(usize),
     ISize(isize),
     UInt8(u8),
@@ -36,7 +35,7 @@ pub enum Ints{
 }
 
 #[derive(FromPyObject, PartialEq, Debug)]
-pub enum Floats{
+pub enum Floats {
     Float32(f32),
     Float64(f64),
 }
